@@ -25,25 +25,25 @@
     failed tests (--debug) 
 
     New test data files can be automatically created using the:
-    
+
         --new <domain> <type>
 
     option. The data is checked against dig output and an error raised if
     this does not match. This is effectively the same as running:
 
-        python -m dnslib.client --query --hex --dig <domain> <type> 
+        python -m dnslib.client --query --hex --dig <domain> <type>
 
     It is possible to manually generate test data files using dnslib.client
     even if the dig data doesn't match (this is usually due to an unsupported
     RDATA type which dnslib will output in hex rather then parsing contents).
     The roundtrip tests will still work in this case (the unknown RDATA is
-    handled as an opaque blob). 
+    handled as an opaque blob).
 
     In some cases the tests will fail as a result of the zone file parser
     being more fragile than the packet parser (especially with broken data)
 
     Note - unittests are dynamically generated from the test directory contents
-    (matched against the --glob parameter) 
+    (matched against the --glob parameter)
 
 """
 
@@ -54,15 +54,11 @@ import binascii
 import code
 import glob
 import os.path
+import subprocess
 import unittest
 
 from dnslib.digparser import DigParser
 from dnslib.dns import DNSRecord
-
-try:
-    from subprocess import getoutput
-except ImportError:
-    from commands import getoutput
 
 try:
     input = raw_input
@@ -85,7 +81,7 @@ def new_test(domain, qtype, address="8.8.8.8", port=53, nodig=False):
         a = DNSRecord.parse(a_pkt)
 
     if not nodig:
-        dig = getoutput("dig +qr -p %d %s %s @%s" % (
+        dig = subprocess.getoutput("dig +qr -p %d %s %s @%s" % (
             port, domain, qtype, address))
         dig_reply = list(iter(DigParser(dig)))
         # DiG might have retried in TCP mode so get last q/a

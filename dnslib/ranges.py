@@ -52,8 +52,13 @@
 
 import sys
 
-if sys.version < '3':
-    int_types = (int, long,)
+try:
+    long
+except NameError:
+    long = int
+
+if sys.version_info < (3,):
+    int_types = (int, long)
     byte_types = (str, bytearray)
 else:
     int_types = (int,)

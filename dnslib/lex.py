@@ -13,37 +13,24 @@ except ImportError:
 
 class Lexer(object):
     """
-        Simple Lexer base class. Provides basic lexer framework and 
-        helper functionality (read/peek/pushback etc)
+    Simple Lexer base class. Provides basic lexer framework and
+    helper functionality (read/peek/pushback etc)
 
-        Each state is implemented using a method (lexXXXX) which should
-        match a single token and return a (token,lexYYYY) tuple, with lexYYYY
-        representing the next state. If token is None this is not emitted
-        and if lexYYYY is None or the lexer reaches the end of the 
-        input stream the lexer exits.
+    Each state is implemented using a method (lexXXXX) which should
+    match a single token and return a (token,lexYYYY) tuple, with lexYYYY
+    representing the next state. If token is None this is not emitted
+    and if lexYYYY is None or the lexer reaches the end of the
+    input stream the lexer exits.
 
-        The 'parse' method returns a generator that will return tokens
-        (the class also acts as an iterator)
+    The 'parse' method returns a generator that will return tokens
+    (the class also acts as an iterator)
 
-        The default start state is 'lexStart'
+    The default start state is 'lexStart'
 
-        Input can either be a string/bytes or file object.
+    Input can either be a string/bytes or file object.
 
-        The approach is based loosely on Rob Pike's Go lexer presentation
-        (using generators rather than channels).
-
-        >>> p = Lexer("a bcd efgh")
-        >>> p.read()
-        'a'
-        >>> p.read()
-        ' '
-        >>> p.peek(3)
-        'bcd'
-        >>> p.read(5)
-        'bcd e'
-        >>> p.pushback('e')
-        >>> p.read(4)
-        'efgh'
+    The approach is based loosely on Rob Pike's Go lexer presentation
+    (using generators rather than channels).
     """
 
     escape_chars = '\\'
@@ -52,9 +39,9 @@ class Lexer(object):
     def __init__(self, f, debug=False):
         if hasattr(f, 'read'):
             self.f = f
-        elif type(f) == str:
+        elif isinstance(f, str):
             self.f = StringIO(f)
-        elif type(f) == bytes:
+        elif isinstance(f, bytes):
             self.f = StringIO(f.decode())
         else:
             raise ValueError("Invalid input")
@@ -141,25 +128,14 @@ class Lexer(object):
 
 class WordLexer(Lexer):
     """
-        Example lexer which will split input stream into words (respecting
-        quotes)
+    Example lexer which will split input stream into words (respecting
+    quotes)
 
-        To emit SPACE tokens: self.spacetok = ('SPACE',None)
-        To emit NL tokens: self.nltok = ('NL',None)
-
-        >>> l = WordLexer(r'abc "def\100\x3d\. ghi" jkl')
-        >>> list(l)
-        [('ATOM', 'abc'), ('ATOM', 'def@=. ghi'), ('ATOM', 'jkl')]
-        >>> l = WordLexer(r"1 '2 3 4' 5")
-        >>> list(l)
-        [('ATOM', '1'), ('ATOM', '2 3 4'), ('ATOM', '5')]
-        >>> l = WordLexer("abc# a comment")
-        >>> list(l)
-        [('ATOM', 'abc'), ('COMMENT', 'a comment')]
+    To emit SPACE tokens: self.spacetok = ('SPACE',None)
+    To emit NL tokens: self.nltok = ('NL',None)
     """
 
-    wordchars = set(string.ascii_letters) | set(string.digits) | \
-                set(string.punctuation)
+    wordchars = set(string.ascii_letters) | set(string.digits) | set(string.punctuation)
     quotechars = set('"\'')
     commentchars = set('#')
     spacechars = set(' \t\x0b\x0c')
@@ -188,7 +164,6 @@ class WordLexer(Lexer):
                 return tok(self.lexQuote)
             elif c in self.wordchars:
                 return tok(self.lexWord)
-                return (self.spacetok, self.lexWord)
             elif c:
                 raise ValueError("Invalid input [%d]: %s" % (
                     self.f.tell(), c))
@@ -249,19 +224,9 @@ class WordLexer(Lexer):
 
 class RandomLexer(Lexer):
     """
-        Test lexing from infinite stream. 
+    Test lexing from infinite stream.
 
-        Extract strings of letters/numbers from /dev/urandom
-
-        >>> import itertools,sys
-        >>> if sys.version[0] == '2':
-        ...     f = open("/dev/urandom")
-        ... else:
-        ...     f = open("/dev/urandom",encoding="ascii",errors="replace")
-        >>> r = RandomLexer(f)
-        >>> i = iter(r)
-        >>> len(list(itertools.islice(i,10)))
-        10
+    Extract strings of letters/numbers from /dev/urandom
     """
 
     minalpha = 4

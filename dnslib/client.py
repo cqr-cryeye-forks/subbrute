@@ -2,12 +2,12 @@
 
 """
     DNS Client - DiG-like CLI utility. 
-    
+
     Mostly useful for testing. Can optionally compare results from two
     nameservers (--diff) or compare results against DiG (--dig).
 
     Usage: python -m dnslib.client [options|--help]
-    
+
     See --help for usage.
 """
 
@@ -66,10 +66,14 @@ if __name__ == '__main__':
     a_pkt = q.send(address, port, tcp=args.tcp)
     a = DNSRecord.parse(a_pkt)
 
-    if a.header.tc and args.noretry == False:
+    if a.header.tc and not args.noretry:
         # Truncated - retry in TCP mode
         a_pkt = q.send(address, port, tcp=True)
         a = DNSRecord.parse(a_pkt)
+
+    q_diff = None
+    a_diff = None
+    diff = None
 
     if args.dig or args.diff:
         if args.diff:
@@ -87,10 +91,9 @@ if __name__ == '__main__':
             q_diff = DNSRecord(header=DNSHeader(id=q.header.id),
                                q=DNSQuestion(args.domain,
                                              getattr(QTYPE, args.qtype)))
-            q_diff = q
             diff = q_diff.send(address, port, tcp=args.tcp)
             a_diff = DNSRecord.parse(diff)
-            if a_diff.header.tc and args.noretry == False:
+            if a_diff.header.tc and not args.noretry:
                 diff = q_diff.send(address, port, tcp=True)
                 a_diff = DNSRecord.parse(diff)
 

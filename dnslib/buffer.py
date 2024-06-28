@@ -18,12 +18,12 @@ class Buffer(object):
 
     # Needed for Python 2/3 doctest compatibility
     >>> def p(s):
-    ...     if not isinstance(s,str):
+    ...     if not isinstance(s, str):
     ...         return s.decode()
     ...     return s
 
     >>> b = Buffer()
-    >>> b.pack("!BHI",1,2,3)
+    >>> b.pack("!BHI", 1, 2, 3)
     >>> b.offset
     7
     >>> b.append(b"0123456789")
@@ -38,7 +38,7 @@ class Buffer(object):
     bytearray(b'01234')
     >>> bytearray(b.get(5))
     bytearray(b'56789')
-    >>> b.update(7,"2s",b"xx")
+    >>> b.update(7, "2s", b"xx")
     >>> b.offset = 7
     >>> bytearray(b.get(5))
     bytearray(b'xx234')
@@ -73,7 +73,7 @@ class Buffer(object):
         """
             Return data as hex string
         """
-        return binascii.hexlify(self.data)
+        return binascii.hexlify(self.data).decode()
 
     def pack(self, fmt, *args):
         """
@@ -92,7 +92,7 @@ class Buffer(object):
 
     def update(self, ptr, fmt, *args):
         """
-            Modify data at offset `ptr` 
+            Modify data at offset `ptr`
         """
         s = struct.pack(fmt, *args)
         self.data[ptr:ptr + len(s)] = s
@@ -101,6 +101,7 @@ class Buffer(object):
         """
             Unpack data at current offset according to fmt (from struct)
         """
+        data = b''
         try:
             data = self.get(struct.calcsize(fmt))
             return struct.unpack(fmt, data)

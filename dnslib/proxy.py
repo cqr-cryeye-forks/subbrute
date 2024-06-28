@@ -4,6 +4,8 @@ from __future__ import print_function
 
 import socket
 import struct
+import argparse
+import time
 
 from dnslib import DNSRecord, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
@@ -11,27 +13,11 @@ from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
 class ProxyResolver(BaseResolver):
     """
-        Proxy resolver - passes all requests to upstream DNS server and
-        returns response
-
-        Note that the request/response will be each be decoded/re-encoded 
-        twice:
-
-        a) Request packet received by DNSHandler and parsed into DNSRecord 
-        b) DNSRecord passed to ProxyResolver, serialised back into packet 
-           and sent to upstream DNS server
-        c) Upstream DNS server returns response packet which is parsed into
-           DNSRecord
-        d) ProxyResolver returns DNSRecord to DNSHandler which re-serialises
-           this into packet and returns to client
-
-        In practice this is actually fairly useful for testing but for a
-        'real' transparent proxy option the DNSHandler logic needs to be
-        modified (see PassthroughDNSHandler)
-
+    Proxy resolver - passes all requests to upstream DNS server and
+    returns response
     """
 
-    def __init__(self, address, port, timeout=0):
+    def __init__(self, address, port, timeout=5):
         self.address = address
         self.port = port
         self.timeout = timeout
@@ -52,12 +38,21 @@ class ProxyResolver(BaseResolver):
         return reply
 
 
+class CustomDNSServer(DNSServer):
+    """
+    Custom DNSServer to ensure resolver and logger attributes are available
+    """
+
+    def __init__(self, resolver, address="0.0.0.0", port=53, tcp=False, logger=None, handler=DNSHandler):
+        super(CustomDNSServer, self).__init__(resolver, address, port, tcp, logger, handler)
+        self.resolver = resolver
+        self.logger = logger
+
+
 class PassthroughDNSHandler(DNSHandler):
     """
-        Modify DNSHandler logic (get_reply method) to send directly to 
-        upstream DNS server rather then decoding/encoding packet and
-        passing to Resolver (The request/response packets are still
-        parsed and logged but this is not inline)
+    Modify DNSHandler logic to send directly to upstream DNS server
+    rather than decoding/encoding packet and passing to Resolver
     """
 
     def get_reply(self, data):
@@ -78,57 +73,57 @@ class PassthroughDNSHandler(DNSHandler):
 
         return response
 
+    def log_request(self, request):
+        self.server.logger.log("Request: %s" % str(request))
+
+    def log_reply(self, reply):
+        self.server.logger.log("Reply: %s" % str(reply))
+
 
 def send_tcp(data, host, port):
     """
-        Helper function to send/receive DNS TCP request
-        (in/out packets will have prepended TCP length header)
+    Helper function to send/receive DNS TCP request
     """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((host, port))
-    sock.sendall(data)
-    response = sock.recv(8192)
-    length = struct.unpack("!H", bytes(response[:2]))[0]
-    while len(response) - 2 < length:
-        response += sock.recv(8192)
-    sock.close()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((host, port))
+        sock.sendall(data)
+        response = sock.recv(8192)
+        length = struct.unpack("!H", response[:2])[0]
+        while len(response) - 2 < length:
+            response += sock.recv(8192)
     return response
 
 
 def send_udp(data, host, port):
     """
-        Helper function to send/receive DNS UDP request
+    Helper function to send/receive DNS UDP request
     """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(data, (host, port))
-    response, server = sock.recvfrom(8192)
-    sock.close()
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(data, (host, port))
+        response, _ = sock.recvfrom(8192)
     return response
 
 
 if __name__ == '__main__':
-
-    import argparse, time
-
     p = argparse.ArgumentParser(description="DNS Proxy")
     p.add_argument("--port", "-p", type=int, default=53,
                    metavar="<port>",
-                   help="Local proxy port (default:53)")
+                   help="Local proxy port (default: 53)")
     p.add_argument("--address", "-a", default="",
                    metavar="<address>",
-                   help="Local proxy listen address (default:all)")
+                   help="Local proxy listen address (default: all)")
     p.add_argument("--upstream", "-u", default="8.8.8.8:53",
                    metavar="<dns server:port>",
-                   help="Upstream DNS server:port (default:8.8.8.8:53)")
+                   help="Upstream DNS server:port (default: 8.8.8.8:53)")
     p.add_argument("--tcp", action='store_true', default=False,
                    help="TCP proxy (default: UDP only)")
     p.add_argument("--timeout", "-o", type=float, default=5,
                    metavar="<timeout>",
                    help="Upstream timeout (default: 5s)")
     p.add_argument("--passthrough", action='store_true', default=False,
-                   help="Dont decode/re-encode request/response (default: off)")
+                   help="Don't decode/re-encode request/response (default: off)")
     p.add_argument("--log", default="request,reply,truncated,error",
-                   help="Log hooks to enable (default: +request,+reply,+truncated,+error,-recv,-send,-data)")
+                   help="Log hooks to enable (default: request,reply,truncated,error)")
     p.add_argument("--log-prefix", action='store_true', default=False,
                    help="Log prefix (timestamp/handler/resolver) (default: False)")
     args = p.parse_args()
@@ -144,20 +139,20 @@ if __name__ == '__main__':
     resolver = ProxyResolver(args.dns, args.dns_port, args.timeout)
     handler = PassthroughDNSHandler if args.passthrough else DNSHandler
     logger = DNSLogger(args.log, args.log_prefix)
-    udp_server = DNSServer(resolver,
-                           port=args.port,
-                           address=args.address,
-                           logger=logger,
-                           handler=handler)
+    udp_server = CustomDNSServer(resolver,
+                                 port=args.port,
+                                 address=args.address,
+                                 logger=logger,
+                                 handler=handler)
     udp_server.start_thread()
 
     if args.tcp:
-        tcp_server = DNSServer(resolver,
-                               port=args.port,
-                               address=args.address,
-                               tcp=True,
-                               logger=logger,
-                               handler=handler)
+        tcp_server = CustomDNSServer(resolver,
+                                     port=args.port,
+                                     address=args.address,
+                                     tcp=True,
+                                     logger=logger,
+                                     handler=handler)
         tcp_server.start_thread()
 
     while udp_server.isAlive():
