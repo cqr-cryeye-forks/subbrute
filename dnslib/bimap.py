@@ -4,11 +4,12 @@
     Bimap - bidirectional mapping between code/value
 """
 
+
 class BimapError(Exception):
     pass
 
-class Bimap(object):
 
+class Bimap(object):
     """
         Bi-directional mapping between code/text. 
 
@@ -49,30 +50,32 @@ class Bimap(object):
     
     """
 
-    def __init__(self,name,forward,error=KeyError):
+    def __init__(self, name, forward, error=KeyError):
         self.name = name
         self.error = error
         self.forward = forward.copy()
-        self.reverse = dict([(v,k) for (k,v) in list(forward.items())])
+        self.reverse = dict([(v, k) for (k, v) in list(forward.items())])
 
-    def get(self,k,default=None):
+    def get(self, k, default=None):
         try:
             return self.forward[k]
         except KeyError as e:
             return default or str(k)
 
-    def __getitem__(self,k):
+    def __getitem__(self, k):
         try:
             return self.forward[k]
         except KeyError as e:
-            raise self.error("%s: Invalid forward lookup: [%s]" % (self.name,k))
+            raise self.error("%s: Invalid forward lookup: [%s]" % (self.name, k))
 
-    def __getattr__(self,k):
+    def __getattr__(self, k):
         try:
             return self.reverse[k]
         except KeyError as e:
-            raise self.error("%s: Invalid reverse lookup: [%s]" % (self.name,k))
+            raise self.error("%s: Invalid reverse lookup: [%s]" % (self.name, k))
+
 
 if __name__ == '__main__':
     import doctest
+
     doctest.testmod()

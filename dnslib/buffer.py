@@ -4,13 +4,15 @@
     Buffer - simple data buffer
 """
 
-import binascii,struct
+import binascii
+import struct
+
 
 class BufferError(Exception):
     pass
 
-class Buffer(object):
 
+class Buffer(object):
     """
     A simple data buffer - supports packing/unpacking in struct format 
 
@@ -42,7 +44,7 @@ class Buffer(object):
     bytearray(b'xx234')
     """
 
-    def __init__(self,data=b''):
+    def __init__(self, data=b''):
         """
             Initialise Buffer from data
         """
@@ -55,13 +57,13 @@ class Buffer(object):
         """
         return len(self.data) - self.offset
 
-    def get(self,length):
+    def get(self, length):
         """
             Gen len bytes at current offset (& increment offset)
         """
         if length > self.remaining():
             raise BufferError("Not enough bytes [offset=%d,remaining=%d,requested=%d]" %
-                    (self.offset,self.remaining(),length))
+                              (self.offset, self.remaining(), length))
         start = self.offset
         end = self.offset + length
         self.offset += length
@@ -73,42 +75,44 @@ class Buffer(object):
         """
         return binascii.hexlify(self.data)
 
-    def pack(self,fmt,*args):
+    def pack(self, fmt, *args):
         """
             Pack data at end of data according to fmt (from struct) & increment
             offset
         """
         self.offset += struct.calcsize(fmt)
-        self.data += struct.pack(fmt,*args)
+        self.data += struct.pack(fmt, *args)
 
-    def append(self,s):
+    def append(self, s):
         """
             Append s to end of data & increment offset
         """
         self.offset += len(s)
         self.data += s
 
-    def update(self,ptr,fmt,*args):
+    def update(self, ptr, fmt, *args):
         """
             Modify data at offset `ptr` 
         """
-        s = struct.pack(fmt,*args)
-        self.data[ptr:ptr+len(s)] = s
+        s = struct.pack(fmt, *args)
+        self.data[ptr:ptr + len(s)] = s
 
-    def unpack(self,fmt):
+    def unpack(self, fmt):
         """
             Unpack data at current offset according to fmt (from struct)
         """
         try:
             data = self.get(struct.calcsize(fmt))
-            return struct.unpack(fmt,data)
+            return struct.unpack(fmt, data)
         except struct.error as e:
-            raise BufferError("Error unpacking struct '%s' <%s>" % 
-                    (fmt,binascii.hexlify(data).decode()))
+            raise BufferError("Error unpacking struct '%s' <%s>" %
+                              (fmt, binascii.hexlify(data).decode()))
 
     def __len__(self):
         return len(self.data)
 
+
 if __name__ == '__main__':
     import doctest
+
     doctest.testmod()

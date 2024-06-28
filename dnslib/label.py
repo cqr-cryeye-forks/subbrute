@@ -8,14 +8,15 @@ from __future__ import print_function
 
 import fnmatch
 
-from dnslib.bit import get_bits,set_bits
+from dnslib.bit import get_bits, set_bits
 from dnslib.buffer import Buffer, BufferError
+
 
 class DNSLabelError(Exception):
     pass
 
-class DNSLabel(object):
 
+class DNSLabel(object):
     """
     Container for DNS label
 
@@ -60,7 +61,8 @@ class DNSLabel(object):
     # True
 
     """
-    def __init__(self,label):
+
+    def __init__(self, label):
         """
             Create DNS label instance 
 
@@ -71,18 +73,18 @@ class DNSLabel(object):
         """
         if type(label) == DNSLabel:
             self.label = label.label
-        elif type(label) in (list,tuple):
+        elif type(label) in (list, tuple):
             self.label = tuple(label)
         else:
-            if not label or label in (b'.','.'):
+            if not label or label in (b'.', '.'):
                 self.label = ()
             elif type(label) is not bytes:
-                self.label = tuple(label.encode("idna").\
-                                rstrip(b".").split(b"."))
+                self.label = tuple(label.encode("idna"). \
+                                   rstrip(b".").split(b"."))
             else:
                 self.label = tuple(label.rstrip(b".").split(b"."))
 
-    def add(self,name):
+    def add(self, name):
         """
             Prepend name to label 
         """
@@ -91,19 +93,19 @@ class DNSLabel(object):
             new.label += self.label
         return new
 
-    def matchGlob(self,pattern):
+    def matchGlob(self, pattern):
         if type(pattern) != DNSLabel:
             pattern = DNSLabel(pattern)
-        return fnmatch.fnmatch(str(self).lower(),str(pattern).lower())
+        return fnmatch.fnmatch(str(self).lower(), str(pattern).lower())
 
-    def matchSuffix(self,suffix):
+    def matchSuffix(self, suffix):
         """
             Return True if label suffix matches 
         """
         suffix = DNSLabel(suffix)
         return self.label[-len(suffix.label):] == suffix.label
 
-    def stripSuffix(self,suffix):
+    def stripSuffix(self, suffix):
         """
             Strip suffix from label
         """
@@ -114,10 +116,10 @@ class DNSLabel(object):
             return self
 
     def idna(self):
-        return ".".join([ s.decode("idna") for s in self.label ]) + "."
+        return ".".join([s.decode("idna") for s in self.label]) + "."
 
     def __str__(self):
-        return ".".join([ s.decode() for s in self.label ]) + "."
+        return ".".join([s.decode() for s in self.label]) + "."
 
     def __repr__(self):
         return "<DNSLabel: '%s'>" % str(self)
@@ -125,21 +127,21 @@ class DNSLabel(object):
     def __hash__(self):
         return hash(self.label)
 
-    def __ne__(self,other):
+    def __ne__(self, other):
         return not self == other
 
-    def __eq__(self,other):
+    def __eq__(self, other):
         if type(other) != DNSLabel:
             return self.__eq__(DNSLabel(other))
         else:
-            return [ l.lower() for l in self.label ] == \
-                   [ l.lower() for l in other.label ]
+            return [l.lower() for l in self.label] == \
+                [l.lower() for l in other.label]
 
     def __len__(self):
         return len(b'.'.join(self.label))
 
-class DNSBuffer(Buffer):
 
+class DNSBuffer(Buffer):
     """
     Extends Buffer to provide DNS name encoding/decoding (with caching)
 
@@ -197,14 +199,14 @@ class DNSBuffer(Buffer):
     aaa.bbb.ccc.
     """
 
-    def __init__(self,data=b''):
+    def __init__(self, data=b''):
         """
             Add 'names' dict to cache stored labels
         """
-        super(DNSBuffer,self).__init__(data)
+        super(DNSBuffer, self).__init__(data)
         self.names = {}
 
-    def decode_name(self,last=-1):
+    def decode_name(self, last=-1):
         """
             Decode label at current offset in buffer (following pointers
             to cached elements where necessary)
@@ -213,20 +215,20 @@ class DNSBuffer(Buffer):
         done = False
         while not done:
             (length,) = self.unpack("!B")
-            if get_bits(length,6,2) == 3:
+            if get_bits(length, 6, 2) == 3:
                 # Pointer
                 self.offset -= 1
-                pointer = get_bits(self.unpack("!H")[0],0,14)
+                pointer = get_bits(self.unpack("!H")[0], 0, 14)
                 save = self.offset
                 if last == save:
-                    raise BufferError("Recursive pointer in DNSLabel [offset=%d,pointer=%d,length=%d]" % 
-                            (self.offset,pointer,len(self.data)))
+                    raise BufferError("Recursive pointer in DNSLabel [offset=%d,pointer=%d,length=%d]" %
+                                      (self.offset, pointer, len(self.data)))
                 if pointer < self.offset:
                     self.offset = pointer
                 else:
                     # Pointer can't point forwards
-                    raise BufferError("Invalid pointer in DNSLabel [offset=%d,pointer=%d,length=%d]" % 
-                            (self.offset,pointer,len(self.data)))
+                    raise BufferError("Invalid pointer in DNSLabel [offset=%d,pointer=%d,length=%d]" %
+                                      (self.offset, pointer, len(self.data)))
                 label.extend(self.decode_name(save).label)
                 self.offset = save
                 done = True
@@ -242,13 +244,13 @@ class DNSBuffer(Buffer):
                     done = True
         return DNSLabel(label)
 
-    def encode_name(self,name):
+    def encode_name(self, name):
         """
             Encode label and store at end of buffer (compressing
             cached elements where needed) and store elements
             in 'names' dict
         """
-        if not isinstance(name,DNSLabel):
+        if not isinstance(name, DNSLabel):
             name = DNSLabel(name)
         if len(name) > 253:
             raise DNSLabelError("Domain label too long: %r" % name)
@@ -257,24 +259,24 @@ class DNSBuffer(Buffer):
             if tuple(name) in self.names:
                 # Cached - set pointer
                 pointer = self.names[tuple(name)]
-                pointer = set_bits(pointer,3,14,2)
-                self.pack("!H",pointer)
+                pointer = set_bits(pointer, 3, 14, 2)
+                self.pack("!H", pointer)
                 return
             else:
                 self.names[tuple(name)] = self.offset
                 element = name.pop(0)
                 if len(element) > 63:
                     raise DNSLabelError("Label component too long: %r" % element)
-                self.pack("!B",len(element))
+                self.pack("!B", len(element))
                 self.append(element)
         self.append(b'\x00')
 
-    def encode_name_nocompress(self,name):
+    def encode_name_nocompress(self, name):
         """
             Encode and store label with no compression 
             (needed for RRSIG)
         """
-        if not isinstance(name,DNSLabel):
+        if not isinstance(name, DNSLabel):
             name = DNSLabel(name)
         if len(name) > 253:
             raise DNSLabelError("Domain label too long: %r" % name)
@@ -283,10 +285,12 @@ class DNSBuffer(Buffer):
             element = name.pop(0)
             if len(element) > 63:
                 raise DNSLabelError("Label component too long: %r" % element)
-            self.pack("!B",len(element))
+            self.pack("!B", len(element))
             self.append(element)
         self.append(b'\x00')
 
+
 if __name__ == '__main__':
     import doctest
+
     doctest.testmod()
